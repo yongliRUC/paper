@@ -1,0 +1,57 @@
+!pip install -q pip -U --user
+!pip install -q --pre tensorflow -U --user
+import tensorflow as tf
+tf.__version__, tf.keras.__version__
+from tensorflow.keras.layers import Input,Conv2D,MaxPooling2D
+
+X1_input = Input(shape=(160, 60, 3))
+X2_input = Input(shape=(160, 60, 3))
+
+shape_conv_1 = Conv2D(20, 5, name="share_conv_1")
+X1 = shape_conv_1(X1_input)
+X2 = shape_conv_1(X2_input)
+X1 = MaxPooling2D(pool_size=(2, 2))(X1)
+X2 = MaxPooling2D(pool_size=(2, 2))(X2)
+
+share_conv_2 = Conv2D(25, 5, name="share_conv_2")
+X1 = share_conv_2(X1)
+X2 = share_conv_2(X2)
+X1 = MaxPooling2D(pool_size=(2, 2))(X1)
+X2 = MaxPooling2D(pool_size=(2, 2))(X2)
+
+from tensorflow.keras.layers import UpSampling2D,Lambda, Add
+
+X1_up = UpSampling2D(size=(5, 5))(X1)
+X2_up = UpSampling2D(size=(5, 5))(X2)
+
+X1_nn = Lambda(lambda X: -X)(X1_up)
+X2_nn = Lambda(lambda X: -X)(X2_up)
+
+X1 = Add()([X1_up, X2_nn])
+X2 = Add()([X2_up, X1_nn])
+
+conv_3_1 = Conv2D(25, 5, strides=(5, 5), name="conv_3_1")
+conv_3_2 = Conv2D(25, 5, strides=(5, 5), name="conv_3_2")
+
+X1 = conv_3_1(X1)
+X2 = conv_3_2(X2)
+
+conv_4_1 = Conv2D(25, 3, name="conv_4_1")
+conv_4_2 = Conv2D(25, 3, name="conv_4_2")
+
+X1 = conv_4_1(X1)
+X2 = conv_4_2(X2)
+X1 = MaxPooling2D(pool_size=(2, 2), padding='same')(X1)
+X2 = MaxPooling2D(pool_size=(2, 2), padding='same')(X2)
+
+from tensorflow.keras.layers import Concatenate,Flatten,Dense
+
+y = Concatenate()([X1, X2])
+y = Flatten()(y)
+y = Dense(500)(y)
+y_output = Dense(2)(y)
+
+model = tf.keras.Model(inputs=[X1_input, X2_input], outputs = [y_output])
+model.summary()
+
+说明：没考虑激活层，没有考虑正则化，只是保证骨架正确，Trainable Params数量与论文一致。
